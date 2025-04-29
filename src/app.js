@@ -7,6 +7,10 @@ const passport = require('passport');
 const { sequelize } = require('./models');
 const logger = require('./config/logger');
 const routes = require('./routes');
+const scraperRoutes = require('./routes/scraperRoutes');
+const productoRoutes = require('./routes/producto.routes');
+const syncRoutes = require('./routes/sync.routes');
+const scheduledSyncService = require('./services/scheduledSync.service');
 
 // Configuración de Passport
 require('./config/passport');
@@ -24,6 +28,9 @@ app.use(passport.initialize());
 
 // Rutas
 app.use('/api', routes);
+app.use('/api/scraper', scraperRoutes);
+app.use('/api/productos', productoRoutes);
+app.use('/api/sync', syncRoutes);
 
 // Manejo de errores
 app.use((err, req, res, next) => {
@@ -41,6 +48,9 @@ async function startServer() {
   try {
     await sequelize.authenticate();
     logger.info('Conexión a la base de datos establecida correctamente.');
+    
+    // Iniciar el servicio de sincronización programada
+    scheduledSyncService.start();
     
     app.listen(PORT, () => {
       logger.info(`Servidor iniciado en el puerto ${PORT}`);

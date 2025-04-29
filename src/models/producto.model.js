@@ -14,6 +14,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true
       },
+      sku: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
+      },
       marcaId: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -70,6 +75,15 @@ module.exports = (sequelize, DataTypes) => {
       imagenUrl: {
         type: DataTypes.STRING,
         allowNull: true
+      },
+      productUrl: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      labels: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        defaultValue: []
       },
       enStock: {
         type: DataTypes.BOOLEAN,
