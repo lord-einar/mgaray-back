@@ -6,7 +6,15 @@ exports.obtenerTodos = async (req, res) => {
   try {
     const pedidos = await ProductoPedido.findAll({
       include: [
-        { model: Producto, as: 'producto' }
+        { 
+          model: Producto, 
+          as: 'producto',
+          include: [
+            { model: Marca, as: 'marca' },
+            { model: Categoria, as: 'categoria' }
+            // Eliminar referencia a fragancia
+          ] 
+        }
       ],
       order: [['createdAt', 'DESC']]
     });
@@ -28,7 +36,15 @@ exports.obtenerPendientes = async (req, res) => {
         completado: false
       },
       include: [
-        { model: Producto, as: 'producto' }
+        { 
+          model: Producto, 
+          as: 'producto',
+          include: [
+            { model: Marca, as: 'marca' },
+            { model: Categoria, as: 'categoria' }
+            // Eliminar referencia a fragancia
+          ]
+        }
       ],
       order: [['createdAt', 'ASC']]
     });
@@ -42,6 +58,7 @@ exports.obtenerPendientes = async (req, res) => {
     });
   }
 };
+
 
 exports.crear = async (req, res) => {
   const transaction = await sequelize.transaction();

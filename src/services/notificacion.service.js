@@ -1,5 +1,6 @@
-// backend/src/services/notificacion.service.js
-const { Notificacion, Producto } = require('../models');
+// src/services/notificacion.service.js
+
+const { Notificacion, Producto, Marca, Categoria } = require('../models');
 const logger = require('../config/logger');
 
 class NotificacionService {
@@ -10,7 +11,15 @@ class NotificacionService {
     try {
       return await Notificacion.findAll({
         include: [
-          { model: Producto, as: 'producto' }
+          { 
+            model: Producto, 
+            as: 'producto',
+            include: [
+              { model: Marca, as: 'marca' },
+              { model: Categoria, as: 'categoria' }
+              // Eliminar la referencia a fragancia
+            ] 
+          }
         ],
         order: [['createdAt', 'DESC']]
       });
@@ -30,7 +39,15 @@ class NotificacionService {
           leida: false
         },
         include: [
-          { model: Producto, as: 'producto' }
+          { 
+            model: Producto, 
+            as: 'producto',
+            include: [
+              { model: Marca, as: 'marca' },
+              { model: Categoria, as: 'categoria' }
+              // Eliminar la referencia a fragancia
+            ]
+          }
         ],
         order: [['createdAt', 'DESC']]
       });

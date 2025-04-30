@@ -1,3 +1,4 @@
+// backend/src/controllers/scraperController.js
 const saphirusScraper = require('../services/saphirusScraper');
 const saphirusSyncService = require('../services/saphirusSync.service');
 const logger = require('../config/logger');
@@ -12,7 +13,7 @@ const scraperController = {
                 total: products.length
             });
         } catch (error) {
-            console.error('Error en el controlador de scraping:', error);
+            logger.error('Error en el controlador de scraping:', error);
             res.status(500).json({
                 success: false,
                 error: 'Error al obtener los productos',
@@ -45,9 +46,6 @@ const scraperController = {
             
             for (const product of products) {
                 try {
-                    // Mostrar la estructura del producto antes de guardarlo
-                    logger.info(`Intentando guardar producto: ${JSON.stringify(product, null, 2)}`);
-                    
                     const savedProduct = await saphirusSyncService.createProduct(product);
                     savedProducts.push(savedProduct);
                     logger.info(`Producto guardado: ${product.name} (Categoría: ${product.category})`);
@@ -75,8 +73,8 @@ const scraperController = {
                 totalSaved: savedProducts.length,
                 totalFailed: failedProducts.length,
                 categories: categories,
-                firstScrapedProducts: products.slice(0, 5), // Mostrar los primeros 5 productos scrapeados
-                failedExamples: failedSummary // Mostrar ejemplos de fallos
+                firstScrapedProducts: products.slice(0, 5),
+                failedExamples: failedSummary
             });
         } catch (error) {
             logger.error('Error en la prueba de scraping y guardado:', error);
@@ -98,7 +96,7 @@ const scraperController = {
                 total: brands.length
             });
         } catch (error) {
-            console.error('Error al obtener las marcas:', error);
+            logger.error('Error al obtener las marcas:', error);
             res.status(500).json({
                 success: false,
                 error: 'Error al obtener las marcas',
@@ -116,7 +114,7 @@ const scraperController = {
                 total: brandsStructure.length
             });
         } catch (error) {
-            console.error('Error al obtener la estructura de marcas y categorías:', error);
+            logger.error('Error al obtener la estructura de marcas y categorías:', error);
             res.status(500).json({
                 success: false,
                 error: 'Error al obtener la estructura de marcas y categorías',
@@ -142,7 +140,7 @@ const scraperController = {
                 ...result
             });
         } catch (error) {
-            console.error('Error al obtener productos por categoría:', error);
+            logger.error('Error al obtener productos por categoría:', error);
             res.status(500).json({
                 success: false,
                 error: 'Error al obtener productos por categoría',
@@ -156,12 +154,41 @@ const scraperController = {
             logger.info('Iniciando scraping de productos');
             const products = await saphirusScraper.scrapeAllProducts();
             
-            res.json({
-                success: true,
-                message: 'Scraping completado',
-                total: products.length,
-                data: products
-            });
+            // Preparar datos en formato adecuado para el frontend
+            const nuevos = products.filter(p => p.isNew).map(p => ({
+                nombre: p.name,
+                precio: p.price?.regular || '0',
+                enOferta: p.isOnSale || false,
+                enStock: p.inStock || false
+            }));
+            
+            const modificados = products.filter(p => !p.isNew && (p.isOnSale || !p.inStock)).map(p => ({
+                nombre: p.name,
+                cambios: []
+            }));
+            
+            const sinStock = products.filter(p => !p.inStock).map(p => ({
+                nombre: p.name,
+                precio: p.price?.regular || '0'
+            }));
+            
+            const resultado = {
+                fechaScraping: new Date(),
+                estadisticas: {
+                    totalProductos: products.length,
+                    nuevos: nuevos.length,
+                    modificados: modificados.length,
+                    sinStock: sinStock.length,
+                    sinCambios: products.length - nuevos.length - modificados.length - sinStock.length
+                },
+                resultados: {
+                    nuevos,
+                    modificados,
+                    sinStock
+                }
+            };
+            
+            res.json(resultado);
         } catch (error) {
             logger.error('Error al ejecutar scraping:', error);
             res.status(500).json({
@@ -193,4 +220,4 @@ const scraperController = {
     }
 };
 
-module.exports = scraperController; 
+module.exports = scraperController;

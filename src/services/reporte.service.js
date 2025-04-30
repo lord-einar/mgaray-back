@@ -8,57 +8,58 @@ class ReporteService {
    * Obtener productos más vendidos
    */
   async obtenerProductosMasVendidos(limite = 10, fechaInicio, fechaFin) {
-    try {
-      const whereClause = { tipo: 'VENTA' };
-      
-      if (fechaInicio && fechaFin) {
-        whereClause.fecha = {
-          [Op.between]: [fechaInicio, fechaFin]
-        };
-      }
-      
-      const result = await Transaccion.findAll({
-        attributes: [
-          'productoId',
-          [sequelize.fn('sum', sequelize.col('cantidad')), 'totalVendido'],
-          [sequelize.fn('sum', sequelize.col('total')), 'totalIngresos'],
-          [sequelize.fn('sum', sequelize.col('ganancia')), 'totalGanancias']
-        ],
-        where: whereClause,
-        include: [
-          { 
-            model: Producto, 
-            as: 'producto',
-            attributes: ['nombre', 'precioVenta', 'stock'],
-            include: [
-              { model: Marca, as: 'marca' },
-              { model: Categoria, as: 'categoria' },
-              { model: Fragancia, as: 'fragancia' }
-            ]
-          }
-        ],
-        group: [
-          'productoId', 
-          'producto.id', 
-          'producto.nombre', 
-          'producto.precioVenta', 
-          'producto.stock',
-          'producto.marca.id',
-          'producto.categoria.id',
-          'producto.fragancia.id'
-        ],
-        order: [
-          [sequelize.literal('totalVendido'), 'DESC']
-        ],
-        limit: limite
-      });
-      
-      return result;
-    } catch (error) {
-      logger.error('Error al obtener productos más vendidos:', error);
-      throw error;
+  try {
+    const whereClause = { tipo: 'VENTA' };
+    
+    if (fechaInicio && fechaFin) {
+      whereClause.fecha = {
+        [Op.between]: [fechaInicio, fechaFin]
+      };
     }
+    
+    const result = await Transaccion.findAll({
+      attributes: [
+        'productoId',
+        [sequelize.fn('sum', sequelize.col('cantidad')), 'totalVendido'],
+        [sequelize.fn('sum', sequelize.col('total')), 'totalIngresos'],
+        [sequelize.fn('sum', sequelize.col('ganancia')), 'totalGanancias']
+      ],
+      where: whereClause,
+      include: [
+        { 
+          model: Producto, 
+          as: 'producto',
+          attributes: ['nombre', 'precioVenta', 'stock'],
+          include: [
+            { model: Marca, as: 'marca' },
+            { model: Categoria, as: 'categoria' }
+            // Eliminamos la referencia a fragancia
+          ]
+        }
+      ],
+      group: [
+        'productoId', 
+        'producto.id', 
+        'producto.nombre', 
+        'producto.precioVenta', 
+        'producto.stock',
+        'producto.marca.id',
+        'producto.categoria.id'
+        // Eliminamos la referencia a fragancia en la agrupación
+      ],
+      order: [
+        [sequelize.literal('totalVendido'), 'DESC']
+      ],
+      limit: limite
+    });
+    
+    return result;
+  } catch (error) {
+    logger.error('Error al obtener productos más vendidos:', error);
+    throw error;
   }
+}
+
 
   /**
    * Obtener ganancias semanales

@@ -269,10 +269,7 @@ class ScraperService {
                   productoScraped.marcaId = marcasMap.get(productoScraped.marca);
                 }
                 
-                if (productoScraped.fragancia) {
-                  productoScraped.fragranciaId = fraganciasMap.get(productoScraped.fragancia);
-                }
-                
+               
                 // Buscar si el producto ya existe en la base de datos
                 const productoExistente = await Producto.findOne({
                   where: { nombre: productoScraped.nombre },
@@ -398,7 +395,6 @@ class ScraperService {
                     descripcion: productoCompleto.descripcion,
                     marcaId: productoCompleto.marcaId,
                     categoriaId: productoCompleto.categoriaId,
-                    fragranciaId: productoCompleto.fragranciaId,
                     precioCompra: productoCompleto.precioVenta * 0.7, // Precio de compra estimado (70%)
                     precioVenta: productoCompleto.precioVenta,
                     stock: 0, // Inicialmente sin stock
@@ -432,7 +428,6 @@ class ScraperService {
                       descripcion: productoCompleto.descripcion,
                       marcaId: productoCompleto.marcaId,
                       categoriaId: productoCompleto.categoriaId,
-                      fragranciaId: productoCompleto.fragranciaId,
                       precioVenta: productoCompleto.precioVenta,
                       enOferta: productoCompleto.enOferta,
                       porcentajeDescuento: productoCompleto.porcentajeDescuento,

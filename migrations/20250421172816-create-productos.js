@@ -37,16 +37,6 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'RESTRICT'
       },
-      fragranciaId: {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-        references: {
-          model: 'fragrancias',
-          key: 'id'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'RESTRICT'
-      },
       precioCompra: {
         type: Sequelize.DECIMAL(10, 2),
         allowNull: false,

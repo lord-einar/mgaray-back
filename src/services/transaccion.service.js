@@ -1,5 +1,6 @@
-// backend/src/services/transaccion.service.js
-const { Transaccion, Producto, Usuario, sequelize, Marca, Categoria, Fragancia } = require('../models');
+// src/services/transaccion.service.js
+
+const { Transaccion, Producto, Usuario, sequelize, Marca, Categoria } = require('../models');
 const productoService = require('./producto.service');
 const logger = require('../config/logger');
 const { Op } = require('sequelize');
@@ -17,8 +18,8 @@ class TransaccionService {
             as: 'producto',
             include: [
               { model: Marca, as: 'marca' },
-              { model: Categoria, as: 'categoria' },
-              { model: Fragancia, as: 'fragancia' }
+              { model: Categoria, as: 'categoria' }
+              // Eliminar la referencia a fragancia
             ]
           },
           { model: Usuario, as: 'usuario' }
@@ -43,8 +44,8 @@ class TransaccionService {
             as: 'producto',
             include: [
               { model: Marca, as: 'marca' },
-              { model: Categoria, as: 'categoria' },
-              { model: Fragancia, as: 'fragancia' }
+              { model: Categoria, as: 'categoria' }
+              // Eliminar la referencia a fragancia
             ]
           },
           { model: Usuario, as: 'usuario' }
@@ -168,8 +169,8 @@ class TransaccionService {
             as: 'producto',
             include: [
               { model: Marca, as: 'marca' },
-              { model: Categoria, as: 'categoria' },
-              { model: Fragancia, as: 'fragancia' }
+              { model: Categoria, as: 'categoria' }
+              // Eliminar la referencia a fragancia
             ]
           },
           { model: Usuario, as: 'usuario' }

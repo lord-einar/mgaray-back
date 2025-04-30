@@ -119,8 +119,8 @@ exports.getAllProductos = async (req, res) => {
     const productos = await Producto.findAll({
       include: [
         { model: Marca, as: 'marca' },
-        { model: Categoria, as: 'categoria' },
-        { model: Fragancia, as: 'fragancia' }
+        { model: Categoria, as: 'categoria' }
+        // Eliminamos la referencia a fragancia
       ]
     });
     res.json(productos);
@@ -128,6 +128,7 @@ exports.getAllProductos = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Obtener productos por marca
 exports.getProductosByMarca = async (req, res) => {
@@ -137,8 +138,8 @@ exports.getProductosByMarca = async (req, res) => {
       where: { marcaId },
       include: [
         { model: Marca, as: 'marca' },
-        { model: Categoria, as: 'categoria' },
-        { model: Fragancia, as: 'fragancia' }
+        { model: Categoria, as: 'categoria' }
+        // Eliminamos la referencia a fragancia
       ]
     });
     res.json(productos);
@@ -146,6 +147,7 @@ exports.getProductosByMarca = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Obtener productos por marca y categoría
 exports.getProductosByMarcaAndCategoria = async (req, res) => {
@@ -158,8 +160,8 @@ exports.getProductosByMarcaAndCategoria = async (req, res) => {
       },
       include: [
         { model: Marca, as: 'marca' },
-        { model: Categoria, as: 'categoria' },
-        { model: Fragancia, as: 'fragancia' }
+        { model: Categoria, as: 'categoria' }
+        // Eliminamos la referencia a fragancia
       ]
     });
     res.json(productos);
@@ -168,6 +170,7 @@ exports.getProductosByMarcaAndCategoria = async (req, res) => {
   }
 };
 
+
 // Obtener un producto por ID
 exports.getProductoById = async (req, res) => {
   try {
@@ -175,8 +178,8 @@ exports.getProductoById = async (req, res) => {
     const producto = await Producto.findByPk(id, {
       include: [
         { model: Marca, as: 'marca' },
-        { model: Categoria, as: 'categoria' },
-        { model: Fragancia, as: 'fragancia' }
+        { model: Categoria, as: 'categoria' }
+        // Eliminamos la referencia a fragancia
       ]
     });
     if (!producto) {
@@ -187,6 +190,7 @@ exports.getProductoById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Buscar productos por nombre o SKU
 exports.searchProductos = async (req, res) => {
@@ -201,8 +205,8 @@ exports.searchProductos = async (req, res) => {
       },
       include: [
         { model: Marca, as: 'marca' },
-        { model: Categoria, as: 'categoria' },
-        { model: Fragancia, as: 'fragancia' }
+        { model: Categoria, as: 'categoria' }
+        // Eliminamos la referencia a fragancia
       ]
     });
     res.json(productos);
@@ -210,6 +214,7 @@ exports.searchProductos = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Crear un nuevo producto
 exports.createProducto = async (req, res) => {
