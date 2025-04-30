@@ -32,20 +32,29 @@ class SaphirusSyncService {
 
   async createProduct(productData) {
     try {
-      const marca = await Marca.findOne({ where: { nombre: productData.brand } });
-      const categoria = await Categoria.findOne({ where: { nombre: productData.category } });
+      // Crear o encontrar la marca
+      const [marca] = await Marca.findOrCreate({
+        where: { nombre: productData.brand },
+        defaults: { nombre: productData.brand }
+      });
 
-      if (!marca || !categoria) {
-        throw new Error(`Marca o categoría no encontrada para ${productData.name}`);
-      }
+      // Crear o encontrar la categoría
+      const [categoria] = await Categoria.findOrCreate({
+        where: { nombre: productData.category },
+        defaults: { nombre: productData.category }
+      });
 
+      // Crear el producto
       return await Producto.create({
         nombre: productData.name,
         descripcion: productData.description,
         sku: productData.sku,
         marcaId: marca.id,
         categoriaId: categoria.id,
-        precioVenta: parseFloat(productData.price.replace('$', '').replace('.', '')),
+        precioVenta: parseFloat(productData.price.regular.replace('$', '').replace('.', '')),
+        precioOferta: productData.price.sale ? parseFloat(productData.price.sale.replace('$', '').replace('.', '')) : null,
+        enOferta: productData.price.sale !== null,
+        porcentajeDescuento: productData.price.sale ? Math.round(((parseFloat(productData.price.regular.replace('$', '').replace('.', '')) - parseFloat(productData.price.sale.replace('$', '').replace('.', ''))) / parseFloat(productData.price.regular.replace('$', '').replace('.', ''))) * 100) : null,
         imagenUrl: productData.imageUrl,
         productUrl: productData.productUrl,
         labels: productData.labels,
@@ -71,7 +80,10 @@ class SaphirusSyncService {
         descripcion: productData.description,
         marcaId: marca.id,
         categoriaId: categoria.id,
-        precioVenta: parseFloat(productData.price.replace('$', '').replace('.', '')),
+        precioVenta: parseFloat(productData.price.regular.replace('$', '').replace('.', '')),
+        precioOferta: productData.price.sale ? parseFloat(productData.price.sale.replace('$', '').replace('.', '')) : null,
+        enOferta: productData.price.sale !== null,
+        porcentajeDescuento: productData.price.sale ? Math.round(((parseFloat(productData.price.regular.replace('$', '').replace('.', '')) - parseFloat(productData.price.sale.replace('$', '').replace('.', ''))) / parseFloat(productData.price.regular.replace('$', '').replace('.', ''))) * 100) : null,
         imagenUrl: productData.imageUrl,
         productUrl: productData.productUrl,
         labels: productData.labels,
@@ -125,7 +137,10 @@ class SaphirusSyncService {
                 sku: productData.sku,
                 marcaId: marca.id,
                 categoriaId: categoria.id,
-                precioVenta: parseFloat(productData.price.replace('$', '').replace('.', '')),
+                precioVenta: parseFloat(productData.price.regular.replace('$', '').replace('.', '')),
+                precioOferta: productData.price.sale ? parseFloat(productData.price.sale.replace('$', '').replace('.', '')) : null,
+                enOferta: productData.price.sale !== null,
+                porcentajeDescuento: productData.price.sale ? Math.round(((parseFloat(productData.price.regular.replace('$', '').replace('.', '')) - parseFloat(productData.price.sale.replace('$', '').replace('.', ''))) / parseFloat(productData.price.regular.replace('$', '').replace('.', ''))) * 100) : null,
                 imagenUrl: productData.imageUrl,
                 productUrl: productData.productUrl,
                 labels: productData.labels,

@@ -110,8 +110,8 @@ class ProductoService {
   /**
    * Actualizar el stock de un producto
    */
-  async actualizarStock(id, cantidad, tipo) {
-    const transaction = await sequelize.transaction();
+  async actualizarStock(id, cantidad, tipo, externalTransaction = null) {
+    const transaction = externalTransaction || await sequelize.transaction();
     
     try {
       const producto = await Producto.findByPk(id, { transaction });
@@ -145,10 +145,15 @@ class ProductoService {
         }, { transaction });
       }
       
-      await transaction.commit();
+      if (!externalTransaction) {
+        await transaction.commit();
+      }
+      
       return producto;
     } catch (error) {
-      await transaction.rollback();
+      if (!externalTransaction) {
+        await transaction.rollback();
+      }
       logger.error(`Error al actualizar stock del producto con ID ${id}:`, error);
       throw error;
     }

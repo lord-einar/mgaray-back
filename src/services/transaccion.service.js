@@ -1,7 +1,8 @@
 // backend/src/services/transaccion.service.js
-const { Transaccion, Producto, Usuario, sequelize } = require('../models');
+const { Transaccion, Producto, Usuario, sequelize, Marca, Categoria, Fragancia } = require('../models');
 const productoService = require('./producto.service');
 const logger = require('../config/logger');
+const { Op } = require('sequelize');
 
 class TransaccionService {
   /**
@@ -93,7 +94,7 @@ class TransaccionService {
       }, { transaction });
       
       // Actualizar stock
-      await productoService.actualizarStock(productoId, cantidad, 'VENTA');
+      await productoService.actualizarStock(productoId, cantidad, 'VENTA', transaction);
       
       await transaction.commit();
       return nuevaTransaccion;

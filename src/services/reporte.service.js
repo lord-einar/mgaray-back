@@ -1,5 +1,5 @@
 // backend/src/services/reporte.service.js
-const { Producto, Transaccion, sequelize } = require('../models');
+const { Producto, Transaccion, Marca, Categoria, Fragancia, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const logger = require('../config/logger');
 
@@ -30,7 +30,11 @@ class ReporteService {
             model: Producto, 
             as: 'producto',
             attributes: ['nombre', 'precioVenta', 'stock'],
-            include: ['marca', 'categoria', 'fragancia']
+            include: [
+              { model: Marca, as: 'marca' },
+              { model: Categoria, as: 'categoria' },
+              { model: Fragancia, as: 'fragancia' }
+            ]
           }
         ],
         group: [

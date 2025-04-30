@@ -3,11 +3,15 @@ const cheerio = require('cheerio');
 
 class SaphirusScraper {
     constructor() {
-        this.baseUrl = 'https://www.saphirus.com.ar/tienda';
+        this.baseUrl = 'https://www.saphirus.com.ar';
         this.productsPerPage = 24;
+        this.maxRetries = 3;
+        this.minDelay = 2000;
+        this.maxDelay = 5000;
+        
         // Configurar axios con timeout y headers
         this.axiosInstance = axios.create({
-            timeout: 30000, // 30 segundos de timeout
+            timeout: 30000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -16,6 +20,197 @@ class SaphirusScraper {
                 'Upgrade-Insecure-Requests': '1'
             }
         });
+    }
+
+    async sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    getRandomDelay() {
+        return Math.floor(Math.random() * (this.maxDelay - this.minDelay + 1)) + this.minDelay;
+    }
+
+    async retryRequest(url, maxRetries = this.maxRetries) {
+        let lastError;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`Intento ${attempt} de ${maxRetries} para URL: ${url}`);
+                const response = await this.axiosInstance.get(url);
+                return response;
+            } catch (error) {
+                lastError = error;
+                console.log(`Error en intento ${attempt}: ${error.message}`);
+                
+                if (attempt < maxRetries) {
+                    const delay = this.getRandomDelay() * attempt; // Incrementar delay con cada intento
+                    console.log(`Esperando ${delay}ms antes del siguiente intento...`);
+                    await this.sleep(delay);
+                }
+            }
+        }
+        throw lastError;
+    }
+
+    async getCategories() {
+        try {
+            console.log('Obteniendo categorías...');
+            const response = await this.retryRequest(`${this.baseUrl}/tienda`);
+            const $ = cheerio.load(response.data);
+            
+            const categories = [];
+            
+            // Procesar cada marca principal y sus categorías
+            $('.product-categories > .cat-item').each((_, brandElement) => {
+                const $brand = $(brandElement);
+                const brandName = $brand.find('> a').text().trim();
+                
+                // Procesar las categorías de cada marca
+                $brand.find('> ul.children > li.cat-item').each((_, catElement) => {
+                    const $category = $(catElement);
+                    const categoryName = $category.find('> a').text().trim();
+                    const categoryUrl = $category.find('> a').attr('href');
+                    
+                    categories.push({
+                        brand: brandName,
+                        name: categoryName,
+                        url: categoryUrl,
+                        fullPath: `${brandName} > ${categoryName}`
+                    });
+                });
+            });
+            
+            return categories;
+        } catch (error) {
+            console.error('Error al obtener categorías:', error.message);
+            throw error;
+        }
+    }
+
+    async scrapeProductsFromCategory(categoryUrl, categoryName) {
+        try {
+            let allProducts = [];
+            let currentPage = 1;
+            let hasNextPage = true;
+            
+            while (hasNextPage) {
+                const pageUrl = `${categoryUrl}${currentPage > 1 ? `page/${currentPage}/` : ''}?per_row=3&shop_view=list`;
+                console.log(`Scrapeando página ${currentPage} de la categoría: ${pageUrl}`);
+                
+                await this.sleep(this.getRandomDelay());
+                const response = await this.retryRequest(pageUrl);
+                const $ = cheerio.load(response.data);
+                
+                $('.product-grid-item').each((_, element) => {
+                    const $product = $(element);
+                    
+                    // Extraer información del producto
+                    const productId = $product.attr('data-id');
+                    const name = $product.find('.wd-entities-title a').text().trim();
+                    const description = $product.find('.woocommerce-product-details__short-description p').text().trim();
+                    const imageUrl = $product.find('.product-image-link img').attr('src');
+                    const productUrl = $product.find('.product-image-link').attr('href');
+                    
+                    // Procesar precios
+                    const $price = $product.find('.price');
+                    const prices = $price.find('.woocommerce-Price-amount').map((_, el) => 
+                        $(el).text().trim()
+                    ).get();
+                    
+                    const isOnSale = $price.find('.woocommerce-Price-amount').length > 1;
+                    const price = {
+                        regular: isOnSale ? prices[0] : prices[0],
+                        sale: isOnSale ? prices[1] : null
+                    };
+                    
+                    // Verificar stock y etiquetas
+                    const inStock = !$product.find('.out-of-stock').length;
+                    const isNew = $product.find('.berocket_better_labels .br_alabel:contains("SALE")').length > 0;
+                    
+                    allProducts.push({
+                        id: productId,
+                        name,
+                        description,
+                        imageUrl,
+                        productUrl,
+                        price,
+                        isOnSale,
+                        inStock,
+                        isNew,
+                        category: categoryName,
+                        sku: $product.find('.add_to_cart_button').attr('data-product_sku'),
+                        stock: inStock ? 'instock' : 'outofstock'
+                    });
+                });
+                
+                // Verificar si hay siguiente página
+                hasNextPage = !!$('.woocommerce-pagination .next').length;
+                currentPage++;
+                
+                // Pequeña pausa entre páginas
+                if (hasNextPage) {
+                    await this.sleep(this.getRandomDelay());
+                }
+            }
+            
+            return allProducts;
+        } catch (error) {
+            console.error('Error al scrapear productos de categoría:', error.message);
+            throw error;
+        }
+    }
+
+    async scrapeAllProducts() {
+        try {
+            const categories = await this.getCategories();
+            console.log(`Se encontraron ${categories.length} categorías`);
+            
+            const allProducts = [];
+            const failedCategories = [];
+            
+            for (const category of categories) {
+                try {
+                    console.log(`Procesando categoría: ${category.fullPath}`);
+                    const products = await this.scrapeProductsFromCategory(category.url, category.name);
+                    
+                    // Añadir información de marca y categoría a cada producto
+                    products.forEach(product => {
+                        product.brand = category.brand;
+                        product.categoryFullPath = category.fullPath;
+                    });
+                    
+                    allProducts.push(...products);
+                    console.log(`Se encontraron ${products.length} productos en ${category.fullPath}`);
+                    
+                    // Pausa entre categorías
+                    await this.sleep(this.getRandomDelay());
+                } catch (error) {
+                    console.error(`Error al procesar categoría ${category.fullPath}:`, error.message);
+                    failedCategories.push(category);
+                }
+            }
+            
+            // Intentar recuperar categorías fallidas
+            if (failedCategories.length > 0) {
+                console.log(`Reintentando ${failedCategories.length} categorías fallidas...`);
+                for (const category of failedCategories) {
+                    try {
+                        const products = await this.scrapeProductsFromCategory(category.url, category.name);
+                        products.forEach(product => {
+                            product.brand = category.brand;
+                            product.categoryFullPath = category.fullPath;
+                        });
+                        allProducts.push(...products);
+                    } catch (error) {
+                        console.error(`Error en reintento de categoría ${category.fullPath}:`, error.message);
+                    }
+                }
+            }
+            
+            return allProducts;
+        } catch (error) {
+            console.error('Error al scrapear todos los productos:', error.message);
+            throw error;
+        }
     }
 
     async getBrands() {
@@ -111,7 +306,12 @@ class SaphirusScraper {
             const url = `${this.baseUrl}/page/${pageNumber}`;
             console.log(`Scrapeando URL: ${url}`);
             
-            const response = await this.axiosInstance.get(url);
+            // Añadir delay aleatorio antes de cada petición
+            const delay = this.getRandomDelay();
+            console.log(`Esperando ${delay}ms antes de hacer la petición...`);
+            await this.sleep(delay);
+            
+            const response = await this.retryRequest(url);
             console.log(`Respuesta recibida para página ${pageNumber}`);
             
             const $ = cheerio.load(response.data);
@@ -128,7 +328,26 @@ class SaphirusScraper {
                 const brand = $product.find('.wd-product-brands-links a').text().trim();
                 
                 // Obtener el precio
-                const price = $product.find('.price .woocommerce-Price-amount').text().trim();
+                const priceElement = $product.find('.price');
+                let regularPrice = '';
+                let salePrice = '';
+                
+                // Verificar si hay precio de oferta
+                const hasSalePrice = priceElement.find('.woocommerce-Price-amount').length > 1;
+                
+                if (hasSalePrice) {
+                    // Si hay oferta, el primer precio es el regular y el segundo es el de oferta
+                    regularPrice = priceElement.find('.woocommerce-Price-amount').first().text().trim();
+                    salePrice = priceElement.find('.woocommerce-Price-amount').last().text().trim();
+                } else {
+                    // Si no hay oferta, solo hay un precio
+                    regularPrice = priceElement.find('.woocommerce-Price-amount').text().trim();
+                }
+                
+                const price = {
+                    regular: regularPrice,
+                    sale: salePrice || null
+                };
                 
                 // Obtener la URL de la imagen
                 const imageUrl = $product.find('.product-image-link img').attr('src');
@@ -143,7 +362,58 @@ class SaphirusScraper {
                 const productId = $product.find('.add_to_cart_button').attr('data-product_id');
                 
                 // Obtener la categoría
-                const category = $product.find('.product_cat').text().trim();
+                let category = '';
+                
+                // Intentar obtener la categoría del menú de navegación
+                const categoryElement = $product.closest('.product-category');
+                if (categoryElement.length) {
+                    category = categoryElement.find('h2.woocommerce-loop-category__title').text().trim();
+                }
+                
+                // Si no se encuentra en el elemento de categoría, buscar en los enlaces de producto
+                if (!category) {
+                    const productLinks = $product.find('a[href*="/categoria-producto/"]');
+                    if (productLinks.length) {
+                        const categoryUrl = productLinks.attr('href');
+                        const categoryMatch = categoryUrl.match(/categoria-producto\/([^/]+)/);
+                        if (categoryMatch) {
+                            category = decodeURIComponent(categoryMatch[1])
+                                .replace(/-/g, ' ')
+                                .split(' ')
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                .join(' ');
+                        }
+                    }
+                }
+                
+                // Si aún no se encuentra, buscar en los breadcrumbs o navegación
+                if (!category) {
+                    const breadcrumbs = $('.woocommerce-breadcrumb a, .breadcrumb a');
+                    if (breadcrumbs.length > 1) {
+                        category = $(breadcrumbs[1]).text().trim();
+                    }
+                }
+                
+                // Si todavía no hay categoría, intentar obtenerla de la URL del producto
+                if (!category) {
+                    const productUrl = $product.find('.product-image-link').attr('href');
+                    if (productUrl) {
+                        const urlParts = productUrl.split('/');
+                        const categoryIndex = urlParts.indexOf('categoria-producto');
+                        if (categoryIndex !== -1 && urlParts[categoryIndex + 1]) {
+                            category = decodeURIComponent(urlParts[categoryIndex + 1])
+                                .replace(/-/g, ' ')
+                                .split(' ')
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                .join(' ');
+                        }
+                    }
+                }
+                
+                // Si aún no hay categoría, usar una por defecto
+                if (!category) {
+                    category = 'Sin Categoría';
+                }
                 
                 // Obtener el estado del stock
                 const stock = $product.find('.stock').text().trim() || 'instock';
@@ -174,34 +444,6 @@ class SaphirusScraper {
             return products;
         } catch (error) {
             console.error(`Error al scrapear la página ${pageNumber}:`, error.message);
-            if (error.response) {
-                console.error('Respuesta del servidor:', error.response.status);
-                console.error('Headers:', error.response.headers);
-            }
-            throw error;
-        }
-    }
-
-    async scrapeAllProducts() {
-        try {
-            const totalPages = await this.getTotalPages();
-            console.log(`Total de páginas a scrapear: ${totalPages}`);
-            
-            let allProducts = [];
-            
-            for (let page = 1; page <= totalPages; page++) {
-                console.log(`Scrapeando página ${page} de ${totalPages}`);
-                const pageProducts = await this.scrapePage(page);
-                allProducts = allProducts.concat(pageProducts);
-                
-                // Agregar un pequeño delay para no sobrecargar el servidor
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-            
-            console.log(`Total de productos scrapeados: ${allProducts.length}`);
-            return allProducts;
-        } catch (error) {
-            console.error('Error al scrapear todos los productos:', error.message);
             throw error;
         }
     }
@@ -254,7 +496,7 @@ class SaphirusScraper {
             console.log(`Obteniendo productos para marca: ${brand}, categoría: ${category}`);
             
             // Construir la URL de la categoría con vista de lista para obtener descripciones
-            const categoryUrl = `https://saphirus.com.ar/productos/${brand}/${category}/?shop_view=list`;
+            const categoryUrl = `${this.baseUrl}/?marca=${encodeURIComponent(brand)}&product_cat=${encodeURIComponent(category)}&shop_view=list`;
             console.log(`URL de categoría: ${categoryUrl}`);
             
             const response = await this.axiosInstance.get(categoryUrl);
@@ -288,7 +530,26 @@ class SaphirusScraper {
                     const productBrand = $product.find('.wd-product-brands-links a').text().trim();
                     
                     // Obtener el precio
-                    const price = $product.find('.price .woocommerce-Price-amount').text().trim();
+                    const priceElement = $product.find('.price');
+                    let regularPrice = '';
+                    let salePrice = '';
+                    
+                    // Verificar si hay precio de oferta
+                    const hasSalePrice = priceElement.find('.woocommerce-Price-amount').length > 1;
+                    
+                    if (hasSalePrice) {
+                        // Si hay oferta, el primer precio es el regular y el segundo es el de oferta
+                        regularPrice = priceElement.find('.woocommerce-Price-amount').first().text().trim();
+                        salePrice = priceElement.find('.woocommerce-Price-amount').last().text().trim();
+                    } else {
+                        // Si no hay oferta, solo hay un precio
+                        regularPrice = priceElement.find('.woocommerce-Price-amount').text().trim();
+                    }
+                    
+                    const price = {
+                        regular: regularPrice,
+                        sale: salePrice || null
+                    };
                     
                     // Obtener la URL de la imagen
                     const imageUrl = $product.find('.product-image-link img').attr('src');
